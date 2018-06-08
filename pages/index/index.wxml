@@ -1,2 +1,5 @@
-<view class='temp'>20°</view>
-<view class='weather'>晴天</view>
+<view class='weather-wrapper'>
+  <view class='temp'>20°</view>
+  <view class='weather'>晴天</view>
+  <image class="weather-bg" src="/images/sunny-bg.png" mode="scaleToFill"></image>
+</view>
