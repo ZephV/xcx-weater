@@ -1,3 +1,4 @@
+const QQMapWX = require('../../libs/qqmap-wx-jssdk.js');
 const weatherMap = {
   'sunny': '晴天',
   'cloudy': '多云',
@@ -14,12 +15,17 @@ const weatherColorMap = {
   'heavyrain': '#c5ccd0',
   'snow': '#aae1fc'
 }
+const UNPROMPTED = 0
+const UNAUTHORIZED = 1
+const AUTHORIZED = 2
 Page({
   data: {
     nowTemp: '14°',
     nowWeather: '多云',
     nowWeatherBackground: '',
-    hourlyWeather: []
+    hourlyWeather: [],
+    city: '广州市',
+    locationAuthType: UNPROMPTED
   },
   onPullDownRefresh() {
     this.getNow(() => {
@@ -27,13 +33,42 @@ Page({
     })
   },
   onLoad() {
+    this.qqmapsdk = new QQMapWX({
+      key: 'S3KBZ-QDZLF-ARAJR-N42ZX-5VLZZ-NDFE5'
+    });
+    wx.getSetting({
+      success: res => {
+        let auth = res.authSetting['scope.userLocation']
+        this.setData({
+          locationAuthType: auth ? AUTHORIZED : (auth === false) ? UNAUTHORIZED : UNPROMPTED
+        })
+        if (auth) {
+          this.getCityAndWeather()
+        } else {
+          this.getNow()
+        }
+      }
+    })
     this.getNow()
+  },
+  onShow() {
+    wx.getSetting({
+      success: res => {
+        let auth = res.authSetting['scope.userLocation']
+        if(auth && this.data.locationAuthType !==AUTHORIZED) {
+          this.setData({
+            locationAuthType: AUTHORIZED
+          }),
+            this.getCityAndWeather()
+        }
+      }
+    })
   },
   getNow(callback) {
     wx.request({
       url: 'https://test-miniprogram.com/api/weather/now',
       data: {
-        city: '广州'
+        city: 'this.data.city'
       },
       success: res => {
         let result = res.data.result;
@@ -87,7 +122,43 @@ Page({
   },
   onTapDayWeather() {
     wx.navigateTo({
-      url: '/pages/list/list'
+      url: '/pages/list/list?city=' + this.data.city
     });
+  },
+  onTapLocation() {
+    if (this.data.locationAuthType === UNAUTHORIZED){
+      wx.navigateTo({
+        url: '/pages/setpage/setpage'
+      })
+    } else {
+      this.getCityAndWeather()
+    }
+  },
+  getCityAndWeather() {
+    wx.getLocation({
+      success: res => {
+        this.setData({
+          locationAuthType: AUTHORIZED
+        })
+        this.qqmapsdk.reverseGeocoder({
+          location: {
+            latitude: res.latitude,
+            longitude: res.longitude
+          },
+          success: res => {
+            let city = res.result.address_component.city;
+            this.setData({
+              city
+            });
+            this.onPullDownRefresh();
+          },
+        });
+      },
+      fail: () => {
+        this.setData({
+          locationAuthType: UNAUTHORIZED
+        })
+      }
+    })
   }
 })
